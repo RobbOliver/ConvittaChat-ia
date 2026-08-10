@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+build/
+
+# env — never commit real secrets (OPENROUTER_API_KEY lives here)
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# testing / coverage
+coverage/
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+
+# prompt preview/debug output saved locally
+/tmp-output/

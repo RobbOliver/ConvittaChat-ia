@@ -1,0 +1,35 @@
+{
+  "name": "convitta-chat-ia",
+  "version": "0.1.0",
+  "description": "AI layer for Convitta Chat — OpenRouter-backed customer service assistant, built to be dropped into the backend once ready.",
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "preview": "tsx src/cli/preview.ts",
+    "send": "tsx src/cli/send.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\" --fix"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "openai": "^6.9.1",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.18.0",
+    "globals": "^17.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
