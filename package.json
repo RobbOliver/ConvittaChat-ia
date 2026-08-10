@@ -11,17 +11,24 @@
   "scripts": {
     "preview": "tsx src/cli/preview.ts",
     "send": "tsx src/cli/send.ts",
+    "dev:server": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\" --fix"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
     "openai": "^6.9.1",
     "zod": "^4.1.13"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "eslint": "^9.18.0",
     "globals": "^17.0.0",
@@ -30,6 +37,7 @@
     "typescript-eslint": "^8.20.0"
   },
   "allowScripts": {
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": true
   }
 }
