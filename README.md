@@ -101,6 +101,13 @@ serviço (aba **Environment**):
 Depois de configurar e o deploy subir, `GET https://SEU-SERVICO.onrender.com/health` deve
 responder `{"ok":true}`.
 
+**Por que `typescript` e os pacotes `@types/*` estão em `dependencies`, não em `devDependencies`**:
+com `NODE_ENV=production` definido (que é exigido acima), o instalador de pacotes do Render pula
+`devDependencies` — e como o Build Command roda `tsc` de verdade nesse mesmo ambiente, o próprio
+compilador e os tipos do Node/Express precisam sobreviver a esse corte. Não mova esses pacotes de
+volta para `devDependencies`; isso quebra o build exatamente como aconteceu antes dessa correção
+(confirmado reproduzindo localmente com `npm install --omit=dev && npm run build`).
+
 ## Estrutura
 
 ```
