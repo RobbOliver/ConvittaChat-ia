@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 const schema = z.object({
   OPENROUTER_API_KEY: z.string().min(1, 'OPENROUTER_API_KEY não configurada — copie .env.example para .env e preencha'),
-  OPENROUTER_MODEL: z.string().min(1).default('anthropic/claude-3.5-haiku'),
+  OPENROUTER_MODEL: z.string().min(1).default('openrouter/free'),
   APP_URL: z.string().min(1).default('https://convittachat-frontend.onrender.com'),
   APP_NAME: z.string().min(1).default('Convitta Chat IA'),
 });
