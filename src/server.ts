@@ -63,12 +63,19 @@ const catalogItemSchema = z.object({
   available: z.boolean(),
 });
 
+const businessHoursRangeSchema = z.object({
+  days: z.array(z.number().int().min(0).max(6)),
+  start: z.string(),
+  end: z.string(),
+});
+
 // Every field but name/catalog is optional — a business that hasn't configured hours or a menu
 // yet still gets a usable (just more generic) prompt, see buildBusinessContext.ts.
 const businessSchema = z.object({
   name: z.string().min(1),
   persona: z.string().optional(),
   hours: z.string().optional(),
+  businessHours: z.array(businessHoursRangeSchema).optional(),
   serviceAreas: z.array(z.string()).optional(),
   paymentMethods: z.array(z.string()).optional(),
   minOrderCents: z.number().optional(),
@@ -82,6 +89,10 @@ const customerSchema = z.object({
   fields: z.array(z.object({ key: z.string(), value: z.string().nullable() })).optional(),
   objective: z.string().nullable().optional(),
   longTermMemory: z.string().nullable().optional(),
+  // Both computed deterministically by the caller (Convitta Chat backend) — see
+  // core/types.ts's CustomerInput doc comments for why the model never decides these itself.
+  horarioValido: z.boolean().nullable().optional(),
+  neighborhoodConfirmed: z.string().nullable().optional(),
 });
 
 const chatRequestSchema = z.object({

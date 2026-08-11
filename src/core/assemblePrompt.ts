@@ -52,7 +52,13 @@ export function assemblePrompt(input: AssemblePromptInput): ChatCompletionMessag
 /** Reference data about the customer, clearly separated from the customer's own message. */
 function buildCustomerBlock(customer?: CustomerInput): string {
   const knownFields = (customer?.fields ?? []).filter((f) => f.value);
-  const hasContent = knownFields.length > 0 || customer?.objective || customer?.longTermMemory;
+  const hasHorarioSignal = customer?.horarioValido !== undefined && customer?.horarioValido !== null;
+  const hasContent =
+    knownFields.length > 0 ||
+    !!customer?.objective ||
+    !!customer?.longTermMemory ||
+    hasHorarioSignal ||
+    customer?.neighborhoodConfirmed !== undefined;
   if (!hasContent) return '';
 
   const lines = [
@@ -61,6 +67,14 @@ function buildCustomerBlock(customer?: CustomerInput): string {
       : null,
     customer?.objective ? `Objetivo desta conversa: ${customer.objective}` : null,
     customer?.longTermMemory ? `O que já sabemos sobre esse cliente:\n${customer.longTermMemory}` : null,
+    // Both computed deterministically by the backend, never by the model — see systemPrompt.ts
+    // rule 6. Absent entirely (not "não"/vazio) means the backend couldn't determine it yet.
+    hasHorarioSignal
+      ? `Horário solicitado é válido (calculado pelo sistema — não julgue isso sozinho): ${customer?.horarioValido ? 'sim' : 'não'}`
+      : null,
+    customer?.neighborhoodConfirmed !== undefined && customer?.neighborhoodConfirmed !== null
+      ? `Bairro confirmado do endereço informado (via consulta real — nunca infira outro): ${customer.neighborhoodConfirmed}`
+      : null,
   ]
     .filter((line): line is string => !!line)
     .join('\n\n');

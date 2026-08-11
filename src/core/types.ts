@@ -13,11 +13,25 @@ export interface CatalogItem {
   available: boolean;
 }
 
+/** One weekly recurring window — e.g. {days:[1,2,3,4,5,6], start:"09:00", end:"19:00"} for
+ * "Seg a sáb, 9h às 19h". `days` uses JS's own 0=domingo..6=sábado numbering. An array of these
+ * (not just one) leaves room for split schedules (e.g. a lunch break) without forcing that
+ * complexity on businesses that don't need it. */
+export interface BusinessHoursRange {
+  days: number[];
+  start: string;
+  end: string;
+}
+
 export interface BusinessInput {
   name: string;
   /** Tone/personality, free text, written by the business admin — not a fixed persona. */
   persona?: string;
+  /** Human-readable display line only (e.g. "Seg a sáb, 9h às 19h") — shown as context text, but
+   * NEVER what validity decisions are based on. See `businessHours` for the structured version
+   * the caller (Convitta Chat backend) uses to compute `horarioValido` deterministically. */
   hours?: string;
+  businessHours?: BusinessHoursRange[];
   serviceAreas?: string[];
   paymentMethods?: string[];
   minOrderCents?: number;
@@ -38,6 +52,15 @@ export interface CustomerInput {
   fields?: CustomerField[];
   objective?: string | null;
   longTermMemory?: string | null;
+  /** Whether the customer's most recently requested pickup/delivery time falls within
+   * `businessHours`, computed deterministically by the backend — undefined/null means no specific
+   * time was detected yet in this message, not "valid". The model must never decide this itself,
+   * only relay what's here (see systemPrompt.ts's non-negotiable rule). */
+  horarioValido?: boolean | null;
+  /** The real neighborhood for the customer's last-known address, resolved via a geocoding
+   * lookup by the backend — null/undefined means not resolved yet. The model must never infer a
+   * neighborhood from a street name using its own world knowledge. */
+  neighborhoodConfirmed?: string | null;
 }
 
 /** What the model may hand back alongside its reply, parsed out of the `<extracao>` block. */
@@ -45,4 +68,6 @@ export interface ExtractedData {
   fields?: Record<string, string>;
   objective?: string | null;
   newFacts?: string[];
+  /** Raw address text as stated by the customer, verbatim — never geocoded by the model itself. */
+  address?: string;
 }

@@ -61,6 +61,10 @@ export async function runAssistant(
     model: env.OPENROUTER_MODEL,
     messages,
     temperature: 0.3,
+    // Customer replies are short by design; capping this bounds worst-case cost and reduces the
+    // odds of the model getting cut off mid-<resposta> (parseStructuredReply.ts still degrades
+    // safely if that happens, but avoiding it in the first place is cheaper than recovering from it).
+    max_tokens: 1000,
   });
 
   const rawReply = completion.choices[0]?.message?.content ?? '';

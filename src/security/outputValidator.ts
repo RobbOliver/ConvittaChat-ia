@@ -47,6 +47,12 @@ const MENTIONS_CATALOG_TOPIC = /produto|item|cat[áa]logo|servi[çc]o|card[áa]p
 
 const LEAK_MARKERS = ['<contexto_negocio>', '<mensagem_cliente>', 'REGRAS DE SEGURANÇA', 'prompt de sistema'];
 
+// parseStructuredReply.ts already strips these before `reply` ever gets here — this is purely an
+// observability tripwire. If one of these ever fires, sanitizeReplyText() has a gap worth
+// investigating; it's not itself a second attempt at cleaning the text (that's a mutation, and
+// mutating the reply is parseStructuredReply.ts's job, not this read-only validator's).
+const RESIDUAL_FRAMING_PATTERN = /<\/?resposta>|<\/?extracao>|^\s*(user|response)\s+safety\s*:/im;
+
 export function validateOutput(reply: string, catalog: CatalogItem[]): ValidationResult {
   const warnings: string[] = [];
 
@@ -79,6 +85,12 @@ export function validateOutput(reply: string, catalog: CatalogItem[]): Validatio
     if (reply.includes(marker)) {
       warnings.push(`Resposta contém "${marker}" — possível vazamento do prompt de sistema.`);
     }
+  }
+
+  if (RESIDUAL_FRAMING_PATTERN.test(reply)) {
+    warnings.push(
+      'Resposta ainda contém marcação de framing/safety após o parser — sanitizeReplyText pode ter uma lacuna, investigar.',
+    );
   }
 
   return { ok: warnings.length === 0, warnings };
