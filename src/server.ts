@@ -15,6 +15,13 @@ import { runAssistant } from './core/chat.js';
 
 const app = express();
 
+// Render (like Heroku/most PaaS) sits in front of this app as a reverse proxy and sets
+// X-Forwarded-For — without telling Express to trust it, express-rate-limit refuses to derive a
+// client IP from that header (rightfully so, since a spoofed header would otherwise let anyone
+// bypass rate limiting). `1` means "trust exactly one hop" — Render's own edge proxy, not an
+// arbitrary chain — which is the correct/safe setting for this deployment shape.
+app.set('trust proxy', 1);
+
 app.use(cors());
 app.use(express.json({ limit: '20kb' })); // a customer message is never legitimately bigger than this
 
