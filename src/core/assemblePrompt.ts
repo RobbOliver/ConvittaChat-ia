@@ -58,7 +58,8 @@ function buildCustomerBlock(customer?: CustomerInput): string {
     !!customer?.objective ||
     !!customer?.longTermMemory ||
     hasHorarioSignal ||
-    customer?.neighborhoodConfirmed !== undefined;
+    customer?.neighborhoodConfirmed !== undefined ||
+    !!customer?.lastOrderSummary;
   if (!hasContent) return '';
 
   const lines = [
@@ -74,6 +75,9 @@ function buildCustomerBlock(customer?: CustomerInput): string {
       : null,
     customer?.neighborhoodConfirmed !== undefined && customer?.neighborhoodConfirmed !== null
       ? `Bairro confirmado do endereço informado (via consulta real — nunca infira outro): ${customer.neighborhoodConfirmed}`
+      : null,
+    customer?.lastOrderSummary
+      ? `Último pedido confirmado deste cliente: ${customer.lastOrderSummary}`
       : null,
   ]
     .filter((line): line is string => !!line)

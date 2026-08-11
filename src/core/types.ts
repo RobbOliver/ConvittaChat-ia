@@ -61,6 +61,10 @@ export interface CustomerInput {
    * lookup by the backend — null/undefined means not resolved yet. The model must never infer a
    * neighborhood from a street name using its own world knowledge. */
   neighborhoodConfirmed?: string | null;
+  /** Human-readable summary of this customer's last confirmed order, already formatted (fields +
+   * "feito há N dias") and freshness-filtered by the backend — undefined means either no past
+   * order or one too old to be worth surfacing. Never built or parsed by this service itself. */
+  lastOrderSummary?: string;
 }
 
 /** What the model may hand back alongside its reply, parsed out of the `<extracao>` block. */
@@ -70,4 +74,9 @@ export interface ExtractedData {
   newFacts?: string[];
   /** Raw address text as stated by the customer, verbatim — never geocoded by the model itself. */
   address?: string;
+  /** Snapshot of a just-confirmed order, only set when the customer explicitly closed a real
+   * order this turn — keys/values are whatever the model judges relevant for this business (item,
+   * size, delivery type, etc.), never a fixed domain-specific shape. The backend persists this
+   * verbatim as the customer's new "last order" memory. */
+  confirmedOrder?: Record<string, string>;
 }

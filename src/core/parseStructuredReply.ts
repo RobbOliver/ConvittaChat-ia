@@ -93,6 +93,19 @@ export function parseStructuredReply(raw: string): ParsedReply {
       extracted.address = obj.endereco.trim();
     }
 
+    if (
+      obj.pedido_confirmado &&
+      typeof obj.pedido_confirmado === 'object' &&
+      !Array.isArray(obj.pedido_confirmado)
+    ) {
+      const order: Record<string, string> = {};
+      for (const [key, value] of Object.entries(obj.pedido_confirmado as Record<string, unknown>)) {
+        if (typeof value === 'string' && value.trim()) order[key] = value.trim();
+        else if (typeof value === 'number' || typeof value === 'boolean') order[key] = String(value);
+      }
+      if (Object.keys(order).length > 0) extracted.confirmedOrder = order;
+    }
+
     return Object.keys(extracted).length > 0 ? { reply, extracted } : { reply };
   } catch {
     // Malformed JSON from the model — discard the extraction, keep the reply intact.
