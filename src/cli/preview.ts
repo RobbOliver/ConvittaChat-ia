@@ -1,5 +1,6 @@
-import { buildBusinessContext } from '../knowledge/marmitaria.js';
 import { assemblePrompt } from '../core/assemblePrompt.js';
+import { buildBusinessContext } from '../core/buildBusinessContext.js';
+import { exampleBusiness } from '../knowledge/exampleBusiness.js';
 import { sanitizeUserInput } from '../security/inputSanitizer.js';
 
 /**
@@ -30,7 +31,11 @@ if (blocked) {
   process.exit(0);
 }
 
-const messages = assemblePrompt({ businessContext: buildBusinessContext(), userMessage: sanitized });
+const messages = assemblePrompt({
+  businessName: exampleBusiness.name,
+  businessContext: buildBusinessContext(exampleBusiness),
+  userMessage: sanitized,
+});
 
 console.log('PROMPT COMPLETO QUE SERIA ENVIADO AO OPENROUTER:\n');
 for (const message of messages) {

@@ -1,4 +1,4 @@
-import { runMarmitariaAssistant } from '../core/chat.js';
+import { runAssistant } from '../core/chat.js';
 
 /**
  * Actually calls OpenRouter with the assembled prompt — requires a real OPENROUTER_API_KEY in
@@ -10,7 +10,7 @@ import { runMarmitariaAssistant } from '../core/chat.js';
 const userMessage = process.argv.slice(2).join(' ') || 'Quanto custa a marmita M e vocês entregam no Jardim das Flores?';
 
 console.log('Enviando ao OpenRouter...\n');
-const result = await runMarmitariaAssistant(userMessage);
+const result = await runAssistant(userMessage);
 
 console.log('='.repeat(72));
 console.log(`MODELO: ${result.model}`);

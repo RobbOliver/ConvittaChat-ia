@@ -3,13 +3,14 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { env } from './config/env.js';
-import { runMarmitariaAssistant } from './core/chat.js';
+import { runAssistant } from './core/chat.js';
 
 /**
- * Stateless HTTP wrapper around runMarmitariaAssistant() — no conversation storage here on
- * purpose. The Convitta Chat backend already persists messages in Postgres; this service just
- * takes a message (plus however much recent history the caller wants to include) and returns a
- * reply. Keeping it stateless means it can restart/redeploy/scale freely with nothing to lose.
+ * Stateless HTTP wrapper around runAssistant() — no conversation storage here on purpose. The
+ * Convitta Chat backend already persists messages in Postgres; this service just takes a message
+ * (plus however much recent history and business/customer data the caller wants to include) and
+ * returns a reply. Keeping it stateless means it can restart/redeploy/scale freely with nothing
+ * to lose.
  */
 
 const app = express();
@@ -47,6 +48,35 @@ function requireApiKey(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+const catalogItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  priceCents: z.number(),
+  available: z.boolean(),
+});
+
+// Every field but name/catalog is optional — a business that hasn't configured hours or a menu
+// yet still gets a usable (just more generic) prompt, see buildBusinessContext.ts.
+const businessSchema = z.object({
+  name: z.string().min(1),
+  persona: z.string().optional(),
+  hours: z.string().optional(),
+  serviceAreas: z.array(z.string()).optional(),
+  paymentMethods: z.array(z.string()).optional(),
+  minOrderCents: z.number().optional(),
+  policies: z.array(z.string()).optional(),
+  extraRules: z.string().optional(),
+  fallbackMessage: z.string().optional(),
+  catalog: z.array(catalogItemSchema),
+});
+
+const customerSchema = z.object({
+  fields: z.array(z.object({ key: z.string(), value: z.string().nullable() })).optional(),
+  objective: z.string().nullable().optional(),
+  longTermMemory: z.string().nullable().optional(),
+});
+
 const chatRequestSchema = z.object({
   message: z.string().min(1).max(2000),
   history: z
@@ -58,6 +88,10 @@ const chatRequestSchema = z.object({
     )
     .max(20)
     .optional(),
+  // Omitted only by the local CLI tools — the real backend always sends the admin's actual
+  // business data. See core/chat.ts's exampleBusiness fallback.
+  business: businessSchema.optional(),
+  customer: customerSchema.optional(),
 });
 
 app.post('/chat', chatRateLimit, requireApiKey, async (req: Request, res: Response) => {
@@ -68,7 +102,12 @@ app.post('/chat', chatRateLimit, requireApiKey, async (req: Request, res: Respon
   }
 
   try {
-    const result = await runMarmitariaAssistant(parsed.data.message, parsed.data.history);
+    const result = await runAssistant(
+      parsed.data.message,
+      parsed.data.history,
+      parsed.data.business,
+      parsed.data.customer,
+    );
     res.json(result);
   } catch (error) {
     console.error('Erro ao consultar o OpenRouter:', error);
