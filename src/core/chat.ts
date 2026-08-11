@@ -1,6 +1,6 @@
 import { env } from '../config/env.js';
 import { exampleBusiness } from '../knowledge/exampleBusiness.js';
-import { openrouter } from '../openrouter/client.js';
+import { callOpenRouter } from '../openrouter/client.js';
 import { sanitizeUserInput } from '../security/inputSanitizer.js';
 import { validateOutput } from '../security/outputValidator.js';
 import { assemblePrompt, type ChatTurn } from './assemblePrompt.js';
@@ -57,15 +57,9 @@ export async function runAssistant(
     customer,
   });
 
-  const completion = await openrouter.chat.completions.create({
-    model: env.OPENROUTER_MODEL,
-    messages,
-    temperature: 0.3,
-    // Customer replies are short by design; capping this bounds worst-case cost and reduces the
-    // odds of the model getting cut off mid-<resposta> (parseStructuredReply.ts still degrades
-    // safely if that happens, but avoiding it in the first place is cheaper than recovering from it).
-    max_tokens: 1000,
-  });
+  // Tries every configured OpenRouter key in order, failing over automatically when one hits its
+  // daily rate limit or errors out — see openrouter/client.ts. Only throws once all of them fail.
+  const completion = await callOpenRouter(messages);
 
   const rawReply = completion.choices[0]?.message?.content ?? '';
   const { reply, extracted } = parseStructuredReply(rawReply);
