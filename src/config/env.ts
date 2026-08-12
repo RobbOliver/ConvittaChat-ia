@@ -8,7 +8,13 @@ const schema = z.object({
   // not here, since Zod can't express "at least one of these two fields" cleanly).
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENROUTER_API_KEYS: z.string().min(1).optional(),
-  OPENROUTER_MODEL: z.string().min(1).default('openrouter/free'),
+  // Deliberately NOT "openrouter/free" (OpenRouter's own auto-router across whatever free models
+  // happen to be up) — that router is what produced a real production incident (a reasoning-
+  // capable model leaking its chain-of-thought straight to a customer, see
+  // core/parseStructuredReply.ts's isLikelyReasoningLeak) and generally inconsistent quality/
+  // latency turn to turn. A pinned model here means an env var that's accidentally unset in some
+  // environment fails toward the known-good pinned model, not silently back to the auto-router.
+  OPENROUTER_MODEL: z.string().min(1).default('google/gemma-4-31b-it:free'),
   APP_URL: z.string().min(1).default('https://convittachat-frontend.onrender.com'),
   APP_NAME: z.string().min(1).default('Convitta Chat IA'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
