@@ -1,6 +1,25 @@
 import OpenAI from 'openai';
-import type { ChatCompletion, ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import type {
+  ChatCompletion,
+  ChatCompletionCreateParamsNonStreaming,
+  ChatCompletionMessageParam,
+} from 'openai/resources/chat/completions';
 import { env, openRouterApiKeys } from '../config/env.js';
+
+/**
+ * OpenRouter-specific request field the `openai` SDK's own types don't know about (it's not part
+ * of the standard OpenAI Chat Completions surface). `exclude: true` lets a reasoning-capable
+ * routed model still think internally, but tells OpenRouter to strip those reasoning tokens out of
+ * the response before they can ever land in `message.content` — the primary defense against
+ * `openrouter/free`'s auto-router picking a reasoning model (e.g. DeepSeek R1) whose chain-of-
+ * thought isn't cleanly separated from its actual answer (see parseStructuredReply.ts's
+ * `isLikelyReasoningLeak` for the defense-in-depth layer in case a routed model doesn't honor this).
+ */
+interface OpenRouterReasoningParams {
+  reasoning?: { exclude?: boolean };
+}
+
+type OpenRouterCreateParams = ChatCompletionCreateParamsNonStreaming & OpenRouterReasoningParams;
 
 /**
  * OpenRouter speaks the OpenAI Chat Completions API, so the official `openai` SDK works
@@ -27,6 +46,14 @@ export interface KeyEntry {
 }
 
 const TRANSIENT_FAILURE_COOLDOWN_MS = 60_000;
+// Per-attempt cap, deliberately shorter than the backend's own ceiling for the whole /chat call
+// (AiClientService.REQUEST_TIMEOUT_MS = 45s) — leaves room for a full-length attempt on a second
+// key after this one times out, instead of one hung key silently eating the entire budget (that's
+// exactly what happened in production: the `openai` SDK's default is a 10-minute timeout with 2
+// automatic internal retries, so a single slow/stuck key could block far longer than the backend
+// was ever willing to wait, meaning our own key failover never got a chance to try the next one).
+// 20s matches the documented real-world ceiling for a legitimate (if slow) openrouter/free reply.
+const PER_ATTEMPT_TIMEOUT_MS = 20_000;
 
 export function isRateLimitError(error: unknown): boolean {
   return (error as { status?: number })?.status === 429;
@@ -94,8 +121,8 @@ const pool: KeyEntry[] = openRouterApiKeys.map((key, i) => {
   return {
     label: `chave #${i + 1} (${maskKey(key)})`,
     exhaustedUntil: 0,
-    call: (messages) =>
-      client.chat.completions.create({
+    call: (messages) => {
+      const params: OpenRouterCreateParams = {
         model: env.OPENROUTER_MODEL,
         messages,
         temperature: 0.3,
@@ -103,7 +130,13 @@ const pool: KeyEntry[] = openRouterApiKeys.map((key, i) => {
         // the odds of the model getting cut off mid-<resposta> (parseStructuredReply.ts still
         // degrades safely if that happens, but avoiding it in the first place is cheaper).
         max_tokens: 1000,
-      }),
+        reasoning: { exclude: true },
+      };
+      // maxRetries: 0 — tryKeysInOrder() above is our own retry/failover mechanism; letting the
+      // SDK ALSO silently retry internally would just add unpredictable extra latency on top of
+      // ours, invisible to our own failure tracking (exhaustedUntil).
+      return client.chat.completions.create(params, { timeout: PER_ATTEMPT_TIMEOUT_MS, maxRetries: 0 });
+    },
   };
 });
 

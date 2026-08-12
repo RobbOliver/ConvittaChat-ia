@@ -5,7 +5,7 @@ import { sanitizeUserInput } from '../security/inputSanitizer.js';
 import { validateOutput } from '../security/outputValidator.js';
 import { assemblePrompt, type ChatTurn } from './assemblePrompt.js';
 import { buildBusinessContext } from './buildBusinessContext.js';
-import { parseStructuredReply } from './parseStructuredReply.js';
+import { isLikelyReasoningLeak, parseStructuredReply } from './parseStructuredReply.js';
 import type { BusinessInput, CustomerInput, ExtractedData } from './types.js';
 
 export interface ChatResult {
@@ -19,6 +19,12 @@ export interface ChatResult {
 
 const REFUSAL_FALLBACK =
   'Não posso continuar com essa mensagem. Se quiser, me conta o que você gostaria de pedir hoje que eu ajudo!';
+
+// Distinct from REFUSAL_FALLBACK on purpose — that one reads as a refusal ("não posso continuar"),
+// appropriate for a blocked injection attempt. This path is different: the customer did nothing
+// wrong, the model's own output just wasn't safe to relay (see isLikelyReasoningLeak below).
+const PARSING_FAILURE_FALLBACK =
+  'Deixa eu confirmar isso direitinho com a equipe e te retorno rapidinho!';
 
 /**
  * The full pipeline, in order: sanitize input -> (short-circuit if hard-blocked) -> assemble the
@@ -62,13 +68,45 @@ export async function runAssistant(
   const completion = await callOpenRouter(messages);
 
   const rawReply = completion.choices[0]?.message?.content ?? '';
-  const { reply, extracted } = parseStructuredReply(rawReply);
+  const { reply: parsedReply, extracted: parsedExtracted, tagFound } = parseStructuredReply(rawReply);
+
+  // Defense-in-depth against a reasoning-capable model routed by openrouter/free leaking its whole
+  // chain-of-thought into `content` instead of (or alongside) a real answer — see
+  // openrouter/client.ts's `reasoning: { exclude: true }` for the primary defense at the source.
+  // Only ever considered when no <resposta> tag was found at all: buildOutputContract() in
+  // systemPrompt.ts unconditionally instructs every model to use that tag now, so its total
+  // absence is always abnormal, never the routine "weak model ignored the format" case that used
+  // to make an untagged reply a normal, trusted path.
+  const suspectedReasoningLeak = !tagFound && isLikelyReasoningLeak(parsedReply);
+  if (suspectedReasoningLeak) {
+    console.warn(
+      `[chat] Resposta descartada — parece raciocínio interno vazado, não uma resposta ao cliente ` +
+        `(modelo roteado: ${completion.model}, ${parsedReply.length} chars, sem tag <resposta>). ` +
+        `Prévia: ${parsedReply.slice(0, 200)}${parsedReply.length > 200 ? '…' : ''}`,
+    );
+  }
+
+  // If the raw output wasn't trustworthy enough to show the customer, it isn't trustworthy enough
+  // to silently persist as customer state either (e.g. a hallucinated pedido_confirmado buried in
+  // a reasoning ramble) — discard both together.
+  const reply = suspectedReasoningLeak ? business.fallbackMessage || PARSING_FAILURE_FALLBACK : parsedReply;
+  const extracted = suspectedReasoningLeak ? undefined : parsedExtracted;
   const validation = validateOutput(reply, business.catalog);
 
   return {
     reply,
     blocked: false,
-    warnings: [...flags, ...validation.warnings],
+    warnings: [
+      ...flags,
+      ...validation.warnings,
+      ...(suspectedReasoningLeak
+        ? [
+            'Resposta do modelo foi substituída por fallback: conteúdo bruto não continha a tag ' +
+              '<resposta> e apresentava sinais de raciocínio interno vazado (tamanho excessivo e/ou ' +
+              'linguagem de meta-raciocínio).',
+          ]
+        : []),
+    ],
     model: env.OPENROUTER_MODEL,
     extracted,
   };
