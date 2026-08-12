@@ -93,6 +93,21 @@ const customerSchema = z.object({
   // core/types.ts's CustomerInput doc comments for why the model never decides these itself.
   horarioValido: z.boolean().nullable().optional(),
   neighborhoodConfirmed: z.string().nullable().optional(),
+  // Was missing here despite existing on CustomerInput/AiCustomerPayload for a while — zod
+  // silently strips any request field it doesn't know about, so every real request's
+  // lastOrderSummary was being dropped before it ever reached buildCustomerBlock(). Found while
+  // touching this same schema block for the flow builder's routing contract.
+  lastOrderSummary: z.string().optional(),
+});
+
+const flowRoutingOptionSchema = z.object({
+  label: z.string().min(1),
+  description: z.string().optional(),
+});
+
+const flowStepSchema = z.object({
+  instructions: z.string().optional(),
+  routingOptions: z.array(flowRoutingOptionSchema).optional(),
 });
 
 const chatRequestSchema = z.object({
@@ -110,6 +125,10 @@ const chatRequestSchema = z.object({
   // business data. See core/chat.ts's exampleBusiness fallback.
   business: businessSchema.optional(),
   customer: customerSchema.optional(),
+  // Which flow node this turn is being answered from — see core/types.ts's FlowStepInput doc
+  // comment. Omitted entirely means "no flow context", not an error (the local CLI tools and any
+  // pre-flow-builder caller never send this).
+  flow: flowStepSchema.optional(),
 });
 
 app.post('/chat', chatRateLimit, requireApiKey, async (req: Request, res: Response) => {
@@ -125,6 +144,7 @@ app.post('/chat', chatRateLimit, requireApiKey, async (req: Request, res: Respon
       parsed.data.history,
       parsed.data.business,
       parsed.data.customer,
+      parsed.data.flow,
     );
     res.json(result);
   } catch (error) {

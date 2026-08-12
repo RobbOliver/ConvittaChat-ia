@@ -6,7 +6,7 @@ import { validateOutput } from '../security/outputValidator.js';
 import { assemblePrompt, type ChatTurn } from './assemblePrompt.js';
 import { buildBusinessContext } from './buildBusinessContext.js';
 import { isLikelyReasoningLeak, parseStructuredReply } from './parseStructuredReply.js';
-import type { BusinessInput, CustomerInput, ExtractedData } from './types.js';
+import type { BusinessInput, CustomerInput, ExtractedData, FlowStepInput } from './types.js';
 
 export interface ChatResult {
   reply: string;
@@ -42,6 +42,7 @@ export async function runAssistant(
   history: ChatTurn[] = [],
   business: BusinessInput = exampleBusiness,
   customer?: CustomerInput,
+  flow?: FlowStepInput,
 ): Promise<ChatResult> {
   const { sanitized, flags, blocked, blockReason } = sanitizeUserInput(userMessage);
   if (blocked) {
@@ -61,6 +62,7 @@ export async function runAssistant(
     userMessage: sanitized,
     history,
     customer,
+    flow,
   });
 
   // Tries every configured OpenRouter key in order, failing over automatically when one hits its
@@ -90,7 +92,7 @@ export async function runAssistant(
   // to silently persist as customer state either (e.g. a hallucinated pedido_confirmado buried in
   // a reasoning ramble) — discard both together.
   const reply = suspectedReasoningLeak ? business.fallbackMessage || PARSING_FAILURE_FALLBACK : parsedReply;
-  const extracted = suspectedReasoningLeak ? undefined : parsedExtracted;
+  const extracted = suspectedReasoningLeak ? undefined : discardUnknownRoute(parsedExtracted, flow);
   const validation = validateOutput(reply, business.catalog);
 
   return {
@@ -110,4 +112,21 @@ export async function runAssistant(
     model: env.OPENROUTER_MODEL,
     extracted,
   };
+}
+
+/**
+ * Defense-in-depth on top of the prompt instruction ("NUNCA invente um valor fora dessa lista" in
+ * systemPrompt.ts) — a weaker/free model can still ignore that instruction and echo something
+ * that isn't one of the routing options it was given, or invent one when no `flow` was sent at
+ * all this turn. Silently dropping `nextNode` in that case (not the whole extraction) means the
+ * caller's interpreter just treats it as "stay at the current node", the same safe behavior as if
+ * the model had simply omitted the key like it was told to when uncertain.
+ */
+function discardUnknownRoute(extracted: ExtractedData | undefined, flow?: FlowStepInput): ExtractedData | undefined {
+  if (!extracted?.nextNode) return extracted;
+  const validLabels = flow?.routingOptions?.map((o) => o.label) ?? [];
+  if (validLabels.includes(extracted.nextNode)) return extracted;
+  const rest: ExtractedData = { ...extracted };
+  delete rest.nextNode;
+  return Object.keys(rest).length > 0 ? rest : undefined;
 }

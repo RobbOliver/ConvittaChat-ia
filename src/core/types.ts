@@ -79,4 +79,28 @@ export interface ExtractedData {
    * size, delivery type, etc.), never a fixed domain-specific shape. The backend persists this
    * verbatim as the customer's new "last order" memory. */
   confirmedOrder?: Record<string, string>;
+  /** Which outgoing flow edge to take next, echoed verbatim from one of `FlowStepInput.routingOptions[].label`
+   * — only present when the caller sent routing options and the model judged one of them a clear
+   * match for what the customer just said. Undefined (not one of the valid labels, or omitted
+   * entirely) means "stay put, ask again" to the caller — see backend's flow-interpreter.service.ts. */
+  nextNode?: string;
+}
+
+/** One label the flow interpreter is willing to route to from the current node — description is
+ * an optional hint for the model about when this option applies, never shown to the customer. */
+export interface FlowRoutingOption {
+  label: string;
+  description?: string;
+}
+
+/**
+ * Per-turn "what step of the flow are we at" input — entirely optional, and `ia` itself has no
+ * concept of nodes/flows/graphs beyond this shape. `instructions` arrives already wrapped with the
+ * caller's own non-negotiable guardrail text (see backend's flow-node-prompt.util.ts) — `ia` just
+ * places it in the prompt, it never needs to (and structurally cannot) know or care that a
+ * guardrail was prepended.
+ */
+export interface FlowStepInput {
+  instructions?: string;
+  routingOptions?: FlowRoutingOption[];
 }

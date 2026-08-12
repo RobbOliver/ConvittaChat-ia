@@ -114,6 +114,10 @@ export function parseStructuredReply(raw: string): ParsedReply {
       if (Object.keys(order).length > 0) extracted.confirmedOrder = order;
     }
 
+    if (typeof obj.proximo_no === 'string' && obj.proximo_no.trim()) {
+      extracted.nextNode = obj.proximo_no.trim();
+    }
+
     return Object.keys(extracted).length > 0 ? { reply, tagFound, extracted } : { reply, tagFound };
   } catch {
     // Malformed JSON from the model — discard the extraction, keep the reply intact.

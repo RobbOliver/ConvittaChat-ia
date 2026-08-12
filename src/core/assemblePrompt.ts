@@ -1,6 +1,6 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { buildSystemPrompt } from '../prompts/systemPrompt.js';
-import type { CustomerInput } from './types.js';
+import type { CustomerInput, FlowStepInput } from './types.js';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
@@ -14,6 +14,7 @@ export interface AssemblePromptInput {
   userMessage: string;
   history?: ChatTurn[];
   customer?: CustomerInput;
+  flow?: FlowStepInput;
 }
 
 const REMINDER =
@@ -31,7 +32,7 @@ export function assemblePrompt(input: AssemblePromptInput): ChatCompletionMessag
   const messages: ChatCompletionMessageParam[] = [
     {
       role: 'system',
-      content: buildSystemPrompt(input.businessName, input.businessContext, input.customer),
+      content: buildSystemPrompt(input.businessName, input.businessContext, input.customer, input.flow),
     },
   ];
 
