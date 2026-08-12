@@ -1,5 +1,34 @@
 import { formatBRL } from './format.js';
-import type { BusinessInput } from './types.js';
+import type { CatalogItem, BusinessInput } from './types.js';
+
+function formatCatalogLine(item: CatalogItem): string {
+  return `- ${item.name} (id: ${item.id}) — ${formatBRL(item.priceCents)}${item.description ? ` — ${item.description}` : ''}`;
+}
+
+/**
+ * Renders the available catalog as plain text. When no item has a category, this is a flat list —
+ * identical output to before categories existed, so accounts that don't use them see zero prompt
+ * churn. Once at least one item has a category, everything groups under a "Categoria:" header
+ * (uncategorized items fall into "Outros"), grouped in order of first appearance so the admin's own
+ * catalog ordering still controls what the model sees first.
+ */
+function buildCatalogLines(catalog: CatalogItem[]): string {
+  const available = catalog.filter((item) => item.available);
+  const hasCategories = available.some((item) => item.category?.trim());
+  if (!hasCategories) {
+    return available.map(formatCatalogLine).join('\n');
+  }
+
+  const groups = new Map<string, CatalogItem[]>();
+  for (const item of available) {
+    const key = item.category?.trim() || 'Outros';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(item);
+  }
+  return [...groups.entries()]
+    .map(([category, items]) => `${category}:\n${items.map(formatCatalogLine).join('\n')}`)
+    .join('\n\n');
+}
 
 /**
  * The literal text block injected into the prompt as the assistant's only source of truth about
@@ -7,13 +36,7 @@ import type { BusinessInput } from './types.js';
  * renders sensibly whether the admin filled in everything or nothing yet.
  */
 export function buildBusinessContext(business: BusinessInput): string {
-  const catalogLines = business.catalog
-    .filter((item) => item.available)
-    .map(
-      (item) =>
-        `- ${item.name} (id: ${item.id}) — ${formatBRL(item.priceCents)}${item.description ? ` — ${item.description}` : ''}`,
-    )
-    .join('\n');
+  const catalogLines = buildCatalogLines(business.catalog);
 
   return [
     `Nome: ${business.name}`,

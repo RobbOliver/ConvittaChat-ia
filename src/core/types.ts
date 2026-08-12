@@ -9,6 +9,9 @@ export interface CatalogItem {
   id: string;
   name: string;
   description?: string;
+  /** Free-text grouping (e.g. "Bebidas", "Marmitas") the admin defines per item — see
+   * buildBusinessContext.ts for how this groups the catalog text shown to the model. */
+  category?: string;
   priceCents: number;
   available: boolean;
 }

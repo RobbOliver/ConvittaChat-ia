@@ -59,6 +59,7 @@ const catalogItemSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().optional(),
+  category: z.string().optional(),
   priceCents: z.number(),
   available: z.boolean(),
 });
