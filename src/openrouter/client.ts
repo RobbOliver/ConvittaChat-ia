@@ -59,19 +59,27 @@ export function isRateLimitError(error: unknown): boolean {
   return (error as { status?: number })?.status === 429;
 }
 
-/** OpenRouter's own account-specific reset time when the response carries it (authoritative),
- * falling back to the next UTC midnight — OpenRouter's documented free-tier daily reset — when the
- * header is missing or unparseable, so a rate-limited key is never retried before it's actually
- * likely to work again. */
+/** OpenRouter's own account-specific reset time when the response carries it (authoritative). In
+ * practice, for `:free` models OpenRouter never sends that header — instead it reports a 429 as
+ * `"limit_source":"upstream_provider_shared_pool"` with a `retry_after_seconds` in the error body
+ * (observed in production: ~20s, a transient blip in the shared free pool, not an exhausted daily
+ * quota), so that's the second thing trusted. Only when neither signal is present does this fall
+ * back to the same short cooldown as any other transient failure — previously this fell back to
+ * "next UTC midnight" assuming every unlabeled 429 was a day-long account cap, which turned a
+ * ~20s upstream hiccup on both keys at once into a self-inflicted lockout until midnight. */
 export function resolveResetTime(error: unknown, now: number = Date.now()): number {
   const headers = (error as { headers?: Headers })?.headers;
-  const raw = typeof headers?.get === 'function' ? headers.get('x-ratelimit-reset') : null;
-  const parsed = raw ? Number(raw) : NaN;
-  if (Number.isFinite(parsed) && parsed > now) return parsed;
+  const headerRaw = typeof headers?.get === 'function' ? headers.get('x-ratelimit-reset') : null;
+  const headerParsed = headerRaw ? Number(headerRaw) : NaN;
+  if (Number.isFinite(headerParsed) && headerParsed > now) return headerParsed;
 
-  const nextMidnightUtc = new Date(now);
-  nextMidnightUtc.setUTCHours(24, 0, 0, 0);
-  return nextMidnightUtc.getTime();
+  const retryAfterSeconds = (error as { error?: { metadata?: { retry_after_seconds?: number } } })
+    ?.error?.metadata?.retry_after_seconds;
+  if (typeof retryAfterSeconds === 'number' && retryAfterSeconds > 0) {
+    return now + retryAfterSeconds * 1000;
+  }
+
+  return now + TRANSIENT_FAILURE_COOLDOWN_MS;
 }
 
 /**
