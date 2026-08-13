@@ -8,13 +8,16 @@ const schema = z.object({
   // not here, since Zod can't express "at least one of these two fields" cleanly).
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENROUTER_API_KEYS: z.string().min(1).optional(),
-  // Deliberately NOT "openrouter/free" (OpenRouter's own auto-router across whatever free models
-  // happen to be up) — that router is what produced a real production incident (a reasoning-
-  // capable model leaking its chain-of-thought straight to a customer, see
-  // core/parseStructuredReply.ts's isLikelyReasoningLeak) and generally inconsistent quality/
-  // latency turn to turn. A pinned model here means an env var that's accidentally unset in some
-  // environment fails toward the known-good pinned model, not silently back to the auto-router.
-  OPENROUTER_MODEL: z.string().min(1).default('google/gemma-4-31b-it:free'),
+  // "openrouter/free" (OpenRouter's own auto-router across whatever free models happen to be up)
+  // — reinstated 2026-08-13 after pinning a single free model (google/gemma-4-*:free) turned out
+  // to trade the auto-router's original risk for a worse one: that one model's own upstream pool
+  // going flaky for an extended stretch, with no automatic fallback to a healthier model. The
+  // auto-router's original incident (a reasoning-capable model leaking chain-of-thought straight to
+  // a customer) is why reasoning: { exclude: true } exists on every call (openrouter/client.ts) and
+  // why isLikelyReasoningLeak() exists as a second layer (core/parseStructuredReply.ts) — both
+  // built in response to that incident and proven live to catch a leak the first layer missed, so
+  // the auto-router's risk is now a covered, tested case rather than an open one.
+  OPENROUTER_MODEL: z.string().min(1).default('openrouter/free'),
   APP_URL: z.string().min(1).default('https://convittachat-frontend.onrender.com'),
   APP_NAME: z.string().min(1).default('Convitta Chat IA'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
