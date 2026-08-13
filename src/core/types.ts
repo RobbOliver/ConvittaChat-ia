@@ -5,6 +5,14 @@
  * from a hardcoded example.
  */
 
+export type CatalogPricingMode = 'FLAT' | 'BY_SIZE';
+
+export interface CatalogItemSize {
+  id: string;
+  label: string;
+  priceCents: number;
+}
+
 export interface CatalogItem {
   id: string;
   name: string;
@@ -12,7 +20,11 @@ export interface CatalogItem {
   /** Free-text grouping (e.g. "Bebidas", "Marmitas") the admin defines per item — see
    * buildBusinessContext.ts for how this groups the catalog text shown to the model. */
   category?: string;
+  /** BY_SIZE items still carry priceCents (ignored by buildBusinessContext/outputValidator) —
+   * sizes is the real source of truth for price when this is BY_SIZE. */
+  pricingMode: CatalogPricingMode;
   priceCents: number;
+  sizes?: CatalogItemSize[];
   available: boolean;
 }
 

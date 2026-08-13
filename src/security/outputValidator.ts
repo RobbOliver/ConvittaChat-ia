@@ -56,7 +56,13 @@ const RESIDUAL_FRAMING_PATTERN = /<\/?resposta>|<\/?extracao>|^\s*(user|response
 export function validateOutput(reply: string, catalog: CatalogItem[]): ValidationResult {
   const warnings: string[] = [];
 
-  const knownPrices = new Set(catalog.map((item) => normalizePrice(formatBRL(item.priceCents))));
+  const knownPrices = new Set(
+    catalog.flatMap((item) =>
+      item.pricingMode === 'BY_SIZE' && item.sizes?.length
+        ? item.sizes.map((size) => normalizePrice(formatBRL(size.priceCents)))
+        : [normalizePrice(formatBRL(item.priceCents))],
+    ),
+  );
   const knownNames = catalog.flatMap((item) => [item.name.toLowerCase(), baseName(item.name).toLowerCase()]);
   const knownLastWords = Array.from(
     new Set(catalog.map((item) => baseName(item.name).split(/\s+/).pop()?.toLowerCase()).filter((w): w is string => !!w)),

@@ -2,7 +2,11 @@ import { formatBRL } from './format.js';
 import type { CatalogItem, BusinessInput } from './types.js';
 
 function formatCatalogLine(item: CatalogItem): string {
-  return `- ${item.name} (id: ${item.id}) — ${formatBRL(item.priceCents)}${item.description ? ` — ${item.description}` : ''}`;
+  const price =
+    item.pricingMode === 'BY_SIZE' && item.sizes?.length
+      ? item.sizes.map((size) => `${size.label}: ${formatBRL(size.priceCents)}`).join(' / ')
+      : formatBRL(item.priceCents);
+  return `- ${item.name} (id: ${item.id}) — ${price}${item.description ? ` — ${item.description}` : ''}`;
 }
 
 /**
@@ -13,7 +17,13 @@ function formatCatalogLine(item: CatalogItem): string {
  * catalog ordering still controls what the model sees first.
  */
 function buildCatalogLines(catalog: CatalogItem[]): string {
-  const available = catalog.filter((item) => item.available);
+  const available = catalog.filter((item) => {
+    if (!item.available) return false;
+    // A BY_SIZE item with no sizes saved yet has no real price to offer — omitting it beats
+    // rendering a fabricated R$ 0,00 the admin never actually configured.
+    if (item.pricingMode === 'BY_SIZE' && !item.sizes?.length) return false;
+    return true;
+  });
   const hasCategories = available.some((item) => item.category?.trim());
   if (!hasCategories) {
     return available.map(formatCatalogLine).join('\n');

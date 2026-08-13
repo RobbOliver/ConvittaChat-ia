@@ -55,12 +55,23 @@ function requireApiKey(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+const catalogItemSizeSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  priceCents: z.number(),
+});
+
+// zod strips unknown keys by default — pricingMode/sizes below MUST be listed explicitly or they
+// silently vanish before this service ever sees them (this already happened once, for
+// customerSchema's lastOrderSummary, before anyone noticed the feature just never worked).
 const catalogItemSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().optional(),
   category: z.string().optional(),
+  pricingMode: z.enum(['FLAT', 'BY_SIZE']).default('FLAT'),
   priceCents: z.number(),
+  sizes: z.array(catalogItemSizeSchema).optional(),
   available: z.boolean(),
 });
 
