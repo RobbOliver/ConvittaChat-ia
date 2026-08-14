@@ -8,16 +8,16 @@ const schema = z.object({
   // not here, since Zod can't express "at least one of these two fields" cleanly).
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENROUTER_API_KEYS: z.string().min(1).optional(),
-  // "openrouter/free" (OpenRouter's own auto-router across whatever free models happen to be up)
-  // — reinstated 2026-08-13 after pinning a single free model (google/gemma-4-*:free) turned out
-  // to trade the auto-router's original risk for a worse one: that one model's own upstream pool
-  // going flaky for an extended stretch, with no automatic fallback to a healthier model. The
-  // auto-router's original incident (a reasoning-capable model leaking chain-of-thought straight to
-  // a customer) is why reasoning: { exclude: true } exists on every call (openrouter/client.ts) and
-  // why isLikelyReasoningLeak() exists as a second layer (core/parseStructuredReply.ts) — both
-  // built in response to that incident and proven live to catch a leak the first layer missed, so
-  // the auto-router's risk is now a covered, tested case rather than an open one.
-  OPENROUTER_MODEL: z.string().min(1).default('openrouter/free'),
+  // Pinned to google/gemini-2.5-flash-lite as of 2026-08-14, after a real 75-call benchmark against
+  // 5 candidates (gpt-4.1-nano, gemini-2.5-flash-lite, openrouter/free, deepseek-v4-flash-0731,
+  // ling-3.0-flash) using production prompt/parsing code: 93% success, fastest+most consistent
+  // latency, best cost-per-successful-reply of the group. Both "openrouter/free" (10 different
+  // underlying models across 15 calls) and a single pinned free model (upstream pool going flaky
+  // for extended stretches, no fallback) were tried and rejected for reliability, not price — the
+  // reasoning: { exclude: true } on every call (openrouter/client.ts) and isLikelyReasoningLeak()
+  // (core/parseStructuredReply.ts) stay regardless of which model is pinned here, as a permanent
+  // second layer against a reasoning-capable model ever leaking chain-of-thought to a customer.
+  OPENROUTER_MODEL: z.string().min(1).default('google/gemini-2.5-flash-lite'),
   APP_URL: z.string().min(1).default('https://convittachat-frontend.onrender.com'),
   APP_NAME: z.string().min(1).default('Convitta Chat IA'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
