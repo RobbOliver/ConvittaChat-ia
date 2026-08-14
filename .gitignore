@@ -24,3 +24,7 @@ coverage/
 
 # prompt preview/debug output saved locally
 /tmp-output/
+
+# local scratch copies of flow JSONs built during flow-design sessions — not source of truth
+# (the flow itself lives in the app's database, this is just a working reference)
+/flows/
