@@ -23,7 +23,9 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(cors());
-app.use(express.json({ limit: '20kb' })); // a customer message is never legitimately bigger than this
+// 20kb covered plain text; a base64-encoded receipt photo/PDF routinely runs 150KB-1MB+ once an
+// `image` attachment (see chatRequestSchema below) is included in the body.
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/', (_req, res) => {
   res.json({ name: env.APP_NAME, status: 'ok', model: env.OPENROUTER_MODEL });
@@ -141,6 +143,15 @@ const chatRequestSchema = z.object({
   // comment. Omitted entirely means "no flow context", not an error (the local CLI tools and any
   // pre-flow-builder caller never send this).
   flow: flowStepSchema.optional(),
+  // An image or PDF attached to the customer's current message (e.g. a payment receipt) — see
+  // core/types.ts's ImageInput doc comment. The backend only ever sends `image/*` or
+  // `application/pdf`; anything else it just doesn't forward.
+  image: z
+    .object({
+      mimeType: z.string().min(1),
+      dataBase64: z.string().min(1),
+    })
+    .optional(),
 });
 
 app.post('/chat', chatRateLimit, requireApiKey, async (req: Request, res: Response) => {
@@ -157,6 +168,7 @@ app.post('/chat', chatRateLimit, requireApiKey, async (req: Request, res: Respon
       parsed.data.business,
       parsed.data.customer,
       parsed.data.flow,
+      parsed.data.image,
     );
     res.json(result);
   } catch (error) {

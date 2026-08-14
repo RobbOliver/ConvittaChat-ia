@@ -119,3 +119,14 @@ export interface FlowStepInput {
   instructions?: string;
   routingOptions?: FlowRoutingOption[];
 }
+
+/** A single image or file attached to the customer's current message (e.g. a payment receipt
+ * photo or PDF) — `mimeType` decides how assemblePrompt.ts represents it to the model (an
+ * `image_url` content part for `image/*`, a `file` content part for `application/pdf`; anything
+ * else is never forwarded by the caller). Entirely optional and generic: `ia` has no idea what a
+ * "Pix receipt" is — whether/how to act on an attached image is up to whatever flow step's own
+ * `instructions` are active this turn (see systemPrompt.ts's attachment-handling line). */
+export interface ImageInput {
+  mimeType: string;
+  dataBase64: string;
+}

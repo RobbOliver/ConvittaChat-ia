@@ -6,7 +6,7 @@ import { validateOutput } from '../security/outputValidator.js';
 import { assemblePrompt, type ChatTurn } from './assemblePrompt.js';
 import { buildBusinessContext } from './buildBusinessContext.js';
 import { isLikelyReasoningLeak, parseStructuredReply } from './parseStructuredReply.js';
-import type { BusinessInput, CustomerInput, ExtractedData, FlowStepInput } from './types.js';
+import type { BusinessInput, CustomerInput, ExtractedData, FlowStepInput, ImageInput } from './types.js';
 
 export interface ChatResult {
   reply: string;
@@ -43,6 +43,7 @@ export async function runAssistant(
   business: BusinessInput = exampleBusiness,
   customer?: CustomerInput,
   flow?: FlowStepInput,
+  image?: ImageInput,
 ): Promise<ChatResult> {
   const { sanitized, flags, blocked, blockReason } = sanitizeUserInput(userMessage);
   if (blocked) {
@@ -63,6 +64,7 @@ export async function runAssistant(
     history,
     customer,
     flow,
+    image,
   });
 
   // Tries every configured OpenRouter key in order, failing over automatically when one hits its

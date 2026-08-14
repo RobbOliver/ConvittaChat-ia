@@ -1,6 +1,6 @@
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import type { ChatCompletionContentPart, ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { buildSystemPrompt } from '../prompts/systemPrompt.js';
-import type { CustomerInput, FlowStepInput } from './types.js';
+import type { CustomerInput, FlowStepInput, ImageInput } from './types.js';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
@@ -15,6 +15,7 @@ export interface AssemblePromptInput {
   history?: ChatTurn[];
   customer?: CustomerInput;
   flow?: FlowStepInput;
+  image?: ImageInput;
 }
 
 const REMINDER =
@@ -41,13 +42,26 @@ export function assemblePrompt(input: AssemblePromptInput): ChatCompletionMessag
   }
 
   const customerBlock = buildCustomerBlock(input.customer);
+  const text = `${REMINDER}${customerBlock}\n\n<mensagem_cliente>\n${input.userMessage}\n</mensagem_cliente>`;
 
   messages.push({
     role: 'user',
-    content: `${REMINDER}${customerBlock}\n\n<mensagem_cliente>\n${input.userMessage}\n</mensagem_cliente>`,
+    content: input.image ? buildMultimodalContent(text, input.image) : text,
   });
 
   return messages;
+}
+
+/** `image/*` becomes an `image_url` content part; `application/pdf` becomes a `file` content part
+ * (a distinct shape in the OpenAI SDK's own types — NOT `image_url`, which only Gemini/most
+ * providers accept for actual images). The caller (backend) never forwards any other mime type. */
+function buildMultimodalContent(text: string, image: ImageInput): ChatCompletionContentPart[] {
+  const dataUrl = `data:${image.mimeType};base64,${image.dataBase64}`;
+  const attachment: ChatCompletionContentPart =
+    image.mimeType === 'application/pdf'
+      ? { type: 'file', file: { file_data: dataUrl, filename: 'comprovante.pdf' } }
+      : { type: 'image_url', image_url: { url: dataUrl } };
+  return [{ type: 'text', text }, attachment];
 }
 
 /** Reference data about the customer, clearly separated from the customer's own message. */
