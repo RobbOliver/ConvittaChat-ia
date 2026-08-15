@@ -13,6 +13,11 @@ import type { CatalogItem } from '../core/types.js';
 export interface ValidationResult {
   ok: boolean;
   warnings: string[];
+  /** True when the reply mentions a "R$ X" price that doesn't match any real catalog price —
+   * distinct from the generic `warnings` list because the caller (chat.ts) acts on this one
+   * specifically: a wrong price is a financial-correctness issue, not just an observability flag,
+   * so it triggers a regeneration attempt rather than just being logged. */
+  hasPriceMismatch: boolean;
 }
 
 const PRICE_PATTERN = /R\$\s?(\d{1,4}(?:[.,]\d{2})?)/g;
@@ -68,10 +73,12 @@ export function validateOutput(reply: string, catalog: CatalogItem[]): Validatio
     new Set(catalog.map((item) => baseName(item.name).split(/\s+/).pop()?.toLowerCase()).filter((w): w is string => !!w)),
   );
 
+  let hasPriceMismatch = false;
   const pricesMentioned = reply.match(PRICE_PATTERN) ?? [];
   for (const raw of pricesMentioned) {
     if (!knownPrices.has(normalizePrice(raw))) {
       warnings.push(`Preço "${raw}" mencionado na resposta não corresponde a nenhum item do catálogo.`);
+      hasPriceMismatch = true;
     }
   }
 
@@ -99,5 +106,5 @@ export function validateOutput(reply: string, catalog: CatalogItem[]): Validatio
     );
   }
 
-  return { ok: warnings.length === 0, warnings };
+  return { ok: warnings.length === 0, warnings, hasPriceMismatch };
 }
