@@ -129,9 +129,13 @@ export function parseStructuredReply(raw: string): ParsedReply {
 // practical text and caps multi-bubble replies at 4 short parts. A leaked chain-of-thought trace
 // (the confirmed production incident: "O cliente disse... Preciso analisar isso baseado no
 // contexto... Primeiro, o objetivo da conversa é...") runs to hundreds of words instead. Length
-// alone is a blunt, generously-high backstop (a real long catalog/policy answer shouldn't trip it
-// on its own); the phrasing check below is the more precise signal.
-const EXCESSIVE_LENGTH_THRESHOLD = 1000; // characters — well beyond any real short WhatsApp reply
+// alone used to trip this at just 1000 chars — a real production flow with a detailed catalog-
+// formatting instruction (categories, sizes, prices, per-item descriptions) legitimately produced
+// a well-formed ~1200-char menu that got discarded outright. The phrasing check below stays the
+// precise, length-independent signal (still sufficient on its own, however short or long the
+// reply); this is now only the blunt length-alone backstop, raised well beyond anything a real
+// (if long) catalog/policy answer would ever reach.
+const EXCESSIVE_LENGTH_THRESHOLD = 4000; // characters — well beyond even a large formatted catalog reply
 
 // Meta-reasoning phrasing characteristic of a model narrating its own chain-of-thought instead of
 // answering — a genuine customer-facing reply talks TO the customer, never ABOUT "o cliente" in
